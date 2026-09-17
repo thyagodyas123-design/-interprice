@@ -1,0 +1,22 @@
+{
+  "name": "interprice",
+  "private": true,
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"npm:dev -w server\" \"npm:dev -w web\"",
+    "test": "npm test -w server",
+    "build": "npm run build -w server && npm run build -w web",
+    "postinstall": "node -e \"const{chmodSync,existsSync}=require('node:fs');const p='node_modules/node-pty/prebuilds/'+process.platform+'-'+process.arch+'/spawn-helper';if(existsSync(p))chmodSync(p,0o755)\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  },
+  "allowScripts": {
+    "node-pty@1.1.0": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true
+  }
+}
