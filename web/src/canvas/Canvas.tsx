@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ReactFlow, Background, Controls, MiniMap,
   addEdge, applyNodeChanges, applyEdgeChanges,
@@ -20,6 +20,11 @@ export function Canvas() {
   const addNode = useStore((s) => s.addNode);
   const [selectedEdge, setSelectedEdge] = useState<any>(null);
 
+  useEffect(() => {
+    syncEdges(useStore.getState().edges);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <button
@@ -36,7 +41,9 @@ export function Canvas() {
         onEdgesChange={(changes) => {
           const next = applyEdgeChanges(changes, edges as any) as any;
           setEdges(next);
-          syncEdges(next);
+          if (changes.some((c) => (c.type as string) !== "select" && (c.type as string) !== "dimensions")) {
+            syncEdges(next);
+          }
         }}
         onConnect={(c) => {
           const edge = { ...c, type: "smoothstep", trigger: "manual", label: "" };

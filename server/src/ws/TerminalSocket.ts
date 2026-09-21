@@ -32,11 +32,6 @@ export function registerTerminalSocket(socket: WebSocket) {
   function cleanupNode(nodeId: string) {
     lastOutput.delete(nodeId);
     targets.delete(nodeId);
-    const w = autoWatchers.get(nodeId);
-    if (w) {
-      w.idle.clear();
-      autoWatchers.delete(nodeId);
-    }
   }
 
   function registerAutoEdges(edges: any[]) {
