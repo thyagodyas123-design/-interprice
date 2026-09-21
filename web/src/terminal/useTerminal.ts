@@ -3,10 +3,12 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { getSocket, onSocketClose, sendSocket } from "../ws/socket";
+import { useStore } from "../state/store";
 
 export function useTerminal(nodeId: string, cwd: string) {
   const ref = useRef<HTMLDivElement>(null);
   const [disconnected, setDisconnected] = useState(false);
+  const loadSeq = useStore((s) => s.loadSeq);
 
   useEffect(() => {
     const el = ref.current;
@@ -37,7 +39,7 @@ export function useTerminal(nodeId: string, cwd: string) {
       offClose();
       term.dispose();
     };
-  }, [nodeId, cwd]);
+  }, [nodeId, cwd, loadSeq]);
 
   return [ref, disconnected] as const;
 }

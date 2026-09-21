@@ -13,7 +13,7 @@ import { NoteNode } from "./nodes/NoteNode";
 import { EdgeHandoff } from "./EdgeHandoff";
 import { DrawingOverlay } from "./DrawingOverlay";
 
-const nodeTypes = { terminal: TerminalNode, note: NoteNode };
+const nodeTypes = { terminal: TerminalNode, note: NoteNode, drawing: () => <></> };
 
 export function Canvas() {
   const nodes = useStore((s) => s.nodes);
@@ -39,20 +39,30 @@ export function Canvas() {
   const save = async () => {
     const name = prompt("partitura name");
     if (!name) return;
-    const { nodes: n, edges: e, roles: r } = useStore.getState();
-    await savePartitura(name, { version: 1, name, viewport: { x: 0, y: 0, zoom: 1 }, nodes: n, edges: e, roles: r });
+    try {
+      const { nodes: n, edges: e, roles: r } = useStore.getState();
+      await savePartitura(name, { version: 1, name, viewport: { x: 0, y: 0, zoom: 1 }, nodes: n, edges: e, roles: r });
+    } catch (err) {
+      alert("save failed: " + String(err));
+    }
   };
 
   const open = async () => {
-    const names = await listPartituras();
-    const name = prompt("open partitura: " + names.join(", "));
-    if (!name) return;
-    const p = await loadPartitura(name);
-    setNodes(p.nodes);
-    setEdges(p.edges);
-    useStore.setState({ roles: p.roles });
-    sendSocket({ type: "roles:set", roles: p.roles });
-    syncEdges(p.edges);
+    try {
+      const names = await listPartituras();
+      const name = prompt("open partitura: " + names.join(", "));
+      if (!name) return;
+      const p = await loadPartitura(name);
+      if (!p?.nodes) return;
+      setNodes(p.nodes);
+      setEdges(p.edges);
+      useStore.setState({ roles: p.roles });
+      sendSocket({ type: "roles:set", roles: p.roles });
+      syncEdges(p.edges);
+      useStore.setState((s) => ({ loadSeq: s.loadSeq + 1 }));
+    } catch (err) {
+      alert("open failed: " + String(err));
+    }
   };
 
   useEffect(() => {

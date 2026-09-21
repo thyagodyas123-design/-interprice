@@ -10,6 +10,7 @@ interface State {
   nodes: PartituraNode[];
   edges: PartituraEdge[];
   roles: Role[];
+  loadSeq: number;
   setNodes: (n: PartituraNode[]) => void;
   setEdges: (e: PartituraEdge[]) => void;
   addNode: (n: PartituraNode) => void;
@@ -17,7 +18,7 @@ interface State {
 }
 
 export const useStore = create<State>((set) => ({
-  nodes: [], edges: [], roles: [DEFAULT_ROLE],
+  nodes: [], edges: [], roles: [DEFAULT_ROLE], loadSeq: 0,
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
   addNode: (n) => set((s) => ({ nodes: [...s.nodes, n] })),

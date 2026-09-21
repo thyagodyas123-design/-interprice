@@ -4,7 +4,10 @@ import { partituraSchema, type Partitura } from "./schema.js";
 
 export class PartituraStore {
   constructor(private dir: string) { mkdirSync(dir, { recursive: true }); }
-  private file(name: string) { return path.join(this.dir, `${name}.json`); }
+  private file(name: string) {
+    if (!/^[\w-]+$/.test(name)) throw new Error("invalid partitura name");
+    return path.join(this.dir, `${name}.json`);
+  }
 
   save(p: Partitura) {
     const parsed = partituraSchema.parse(p);

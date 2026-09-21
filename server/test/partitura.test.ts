@@ -25,4 +25,9 @@ describe("PartituraStore", () => {
   it("rejects invalid JSON", () => {
     expect(() => store.load("missing")).toThrow();
   });
+
+  it("rejects path traversal in name", () => {
+    expect(() => store.load("../../etc/passwd")).toThrow();
+    expect(() => store.load("a/b")).toThrow();
+  });
 });
