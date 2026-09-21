@@ -5,10 +5,12 @@ import "@xterm/xterm/css/xterm.css";
 import { getConnectionState, onSocketClose, onSocketMessage, onSocketOpen, sendSocket } from "../ws/socket";
 import { useStore } from "../state/store";
 
-export function useTerminal(nodeId: string, cwd: string) {
+export function useTerminal(nodeId: string, data: any) {
   const ref = useRef<HTMLDivElement>(null);
   const [disconnected, setDisconnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const loadSeq = useStore((s) => s.loadSeq);
+  const { cwd, roleId, mode, model } = data;
 
   useEffect(() => {
     const el = ref.current;
@@ -20,14 +22,21 @@ export function useTerminal(nodeId: string, cwd: string) {
     fit.fit();
 
     const spawn = () =>
-      sendSocket({ type: "terminal:spawn", nodeId, cwd, cols: term.cols, rows: term.rows });
+      sendSocket({
+        type: "terminal:spawn", nodeId,
+        cwd, roleId: roleId ?? null, mode: mode ?? "persistent", model: model ?? null,
+        cols: term.cols, rows: term.rows,
+      });
 
     const offMsg = onSocketMessage((m) => {
-      if (m.type === "terminal:output" && m.nodeId === nodeId) term.write(m.data);
+      if (m.nodeId !== nodeId) return;
+      if (m.type === "terminal:output") term.write(m.data);
+      else if (m.type === "terminal:error") setError(m.message);
     });
     const offClose = onSocketClose(() => setDisconnected(true));
     const offOpen = onSocketOpen(() => {
       setDisconnected(false);
+      setError(null);
       spawn();
     });
 
@@ -44,7 +53,7 @@ export function useTerminal(nodeId: string, cwd: string) {
       offOpen();
       term.dispose();
     };
-  }, [nodeId, cwd, loadSeq]);
+  }, [nodeId, cwd, roleId, mode, model, loadSeq]);
 
-  return [ref, disconnected] as const;
+  return [ref, disconnected, error] as const;
 }

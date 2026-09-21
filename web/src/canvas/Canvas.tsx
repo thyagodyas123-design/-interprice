@@ -45,6 +45,11 @@ function CanvasInner() {
     }
   };
 
+  const addTerminal = () => {
+    const cwd = prompt("cwd") || "/Users/thyagodias";
+    addNode({ id: crypto.randomUUID(), type: "terminal", position: { x: 100, y: 100 }, data: { label: "Terminal", roleId: null, cwd, mode: "persistent", model: null } } as any);
+  };
+
   const save = async () => {
     const name = prompt("partitura name");
     if (!name) return;
@@ -89,26 +94,32 @@ function CanvasInner() {
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <button
-        onClick={() => addNode({ id: crypto.randomUUID(), type: "note", position: { x: 100, y: 100 }, data: { text: "" } })}
+        onClick={addTerminal}
         style={{ position: "fixed", top: 16, left: 16, zIndex: 10 }}
+      >
+        ＋ terminal
+      </button>
+      <button
+        onClick={() => addNode({ id: crypto.randomUUID(), type: "note", position: { x: 100, y: 100 }, data: { text: "" } })}
+        style={{ position: "fixed", top: 16, left: 125, zIndex: 10 }}
       >
         ＋ note
       </button>
       <button
         onClick={() => setDrawMode((m) => !m)}
-        style={{ position: "fixed", top: 16, left: 110, zIndex: 10 }}
+        style={{ position: "fixed", top: 16, left: 215, zIndex: 10 }}
       >
         ✏️ draw
       </button>
       <button
         onClick={save}
-        style={{ position: "fixed", top: 16, left: 200, zIndex: 10 }}
+        style={{ position: "fixed", top: 16, left: 300, zIndex: 10 }}
       >
         💾 save
       </button>
       <button
         onClick={open}
-        style={{ position: "fixed", top: 16, left: 280, zIndex: 10 }}
+        style={{ position: "fixed", top: 16, left: 385, zIndex: 10 }}
       >
         📂 open
       </button>

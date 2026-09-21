@@ -75,7 +75,7 @@ export function onSocketMessage(handler: MessageHandler): () => void {
 
 export function sendSocket(payload: unknown) {
   const data = JSON.stringify(payload);
-  if (state === "open" && socket) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(data);
   } else {
     pending.push(data);
