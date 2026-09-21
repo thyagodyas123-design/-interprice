@@ -7,7 +7,7 @@ export function registerTerminalSocket(socket: WebSocket) {
     (nodeId, code) => send(socket, { type: "terminal:exit", nodeId, code }),
   );
 
-  socket.on("message", (raw) => {
+  socket.on("message", (raw: any) => {
     let msg: any;
     try {
       msg = JSON.parse(raw.toString());
