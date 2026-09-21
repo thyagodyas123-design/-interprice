@@ -5,7 +5,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useStore } from "../state/store";
-import { syncEdges } from "../ws/socket";
+import { syncEdges, sendSocket } from "../ws/socket";
+import { listPartituras, loadPartitura, savePartitura } from "../api/client";
 import type { FreehandPath } from "../types";
 import { TerminalNode } from "./nodes/TerminalNode";
 import { NoteNode } from "./nodes/NoteNode";
@@ -35,6 +36,25 @@ export function Canvas() {
     }
   };
 
+  const save = async () => {
+    const name = prompt("partitura name");
+    if (!name) return;
+    const { nodes: n, edges: e, roles: r } = useStore.getState();
+    await savePartitura(name, { version: 1, name, viewport: { x: 0, y: 0, zoom: 1 }, nodes: n, edges: e, roles: r });
+  };
+
+  const open = async () => {
+    const names = await listPartituras();
+    const name = prompt("open partitura: " + names.join(", "));
+    if (!name) return;
+    const p = await loadPartitura(name);
+    setNodes(p.nodes);
+    setEdges(p.edges);
+    useStore.setState({ roles: p.roles });
+    sendSocket({ type: "roles:set", roles: p.roles });
+    syncEdges(p.edges);
+  };
+
   useEffect(() => {
     syncEdges(useStore.getState().edges);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,6 +73,18 @@ export function Canvas() {
         style={{ position: "fixed", top: 16, left: 110, zIndex: 10 }}
       >
         ✏️ draw
+      </button>
+      <button
+        onClick={save}
+        style={{ position: "fixed", top: 16, left: 200, zIndex: 10 }}
+      >
+        💾 save
+      </button>
+      <button
+        onClick={open}
+        style={{ position: "fixed", top: 16, left: 280, zIndex: 10 }}
+      >
+        📂 open
       </button>
       <ReactFlow
         nodes={nodes as any}
