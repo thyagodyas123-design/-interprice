@@ -29,6 +29,26 @@ export function registerTerminalSocket(socket: WebSocket) {
     (nodeId, code) => send(socket, { type: "terminal:exit", nodeId, code }),
   );
 
+  function cleanupNode(nodeId: string) {
+    lastOutput.delete(nodeId);
+    targets.delete(nodeId);
+    const w = autoWatchers.get(nodeId);
+    if (w) {
+      w.idle.clear();
+      autoWatchers.delete(nodeId);
+    }
+  }
+
+  function registerAutoEdges(edges: any[]) {
+    for (const w of autoWatchers.values()) w.idle.clear();
+    autoWatchers.clear();
+    for (const e of edges ?? []) {
+      if (e.trigger === "auto") {
+        autoWatchers.set(e.source, { targetId: e.target, idle: new IdleDetector() });
+      }
+    }
+  }
+
   socket.on("message", (raw: any) => {
     let msg: any;
     try {
@@ -44,8 +64,13 @@ export function registerTerminalSocket(socket: WebSocket) {
         const rows = msg.rows ?? 24;
         const model = msg.model ?? null;
         const role = roleRegistry.get(msg.roleId ?? null);
-        const { cmd, args } = buildCommand({ mode, role, cwd, model });
-        manager.spawn({ nodeId: msg.nodeId, command: cmd, args, cwd, cols, rows });
+        try {
+          const { cmd, args } = buildCommand({ mode, role, cwd, model });
+          manager.spawn({ nodeId: msg.nodeId, command: cmd, args, cwd, cols, rows });
+        } catch (e) {
+          send(socket, { type: "terminal:error", nodeId: msg.nodeId, message: String(e) });
+          break;
+        }
         targets.set(msg.nodeId, {
           kind: mode,
           write: (s) => manager.write(msg.nodeId, s),
@@ -53,7 +78,11 @@ export function registerTerminalSocket(socket: WebSocket) {
             const one = ["run", "--dir", cwd];
             if (model) one.push("-m", model);
             one.push(prompt);
-            manager.spawn({ nodeId: msg.nodeId, command: "opencode", args: one, cwd, cols, rows });
+            try {
+              manager.spawn({ nodeId: msg.nodeId, command: "opencode", args: one, cwd, cols, rows });
+            } catch (e) {
+              send(socket, { type: "terminal:error", nodeId: msg.nodeId, message: String(e) });
+            }
           },
         });
         break;
@@ -66,16 +95,16 @@ export function registerTerminalSocket(socket: WebSocket) {
         break;
       case "terminal:kill":
         manager.kill(msg.nodeId);
+        cleanupNode(msg.nodeId);
         break;
       case "roles:set":
         for (const r of msg.roles ?? []) roleRegistry.set(r);
         break;
+      case "edges:set":
+        registerAutoEdges(msg.edges);
+        break;
       case "handoff":
-        if (msg.trigger === "auto") {
-          autoWatchers.set(msg.sourceId, { targetId: msg.targetId, idle: new IdleDetector() });
-        } else {
-          deliverHandoff(msg.sourceId, msg.targetId, msg.content);
-        }
+        deliverHandoff(msg.sourceId, msg.targetId, msg.content);
         break;
     }
   });

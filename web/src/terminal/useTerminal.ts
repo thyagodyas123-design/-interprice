@@ -1,11 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { getSocket, sendSocket } from "../ws/socket";
+import { getSocket, onSocketClose, sendSocket } from "../ws/socket";
 
 export function useTerminal(nodeId: string, cwd: string) {
   const ref = useRef<HTMLDivElement>(null);
+  const [disconnected, setDisconnected] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -23,6 +24,8 @@ export function useTerminal(nodeId: string, cwd: string) {
     };
     ws.addEventListener("message", onMessage);
 
+    const offClose = onSocketClose(() => setDisconnected(true));
+
     sendSocket({ type: "terminal:spawn", nodeId, cwd, cols: term.cols, rows: term.rows });
     term.onData((d) => sendSocket({ type: "terminal:input", nodeId, data: d }));
     term.onResize(({ cols, rows }) =>
@@ -31,9 +34,10 @@ export function useTerminal(nodeId: string, cwd: string) {
     return () => {
       sendSocket({ type: "terminal:kill", nodeId });
       ws.removeEventListener("message", onMessage);
+      offClose();
       term.dispose();
     };
   }, [nodeId, cwd]);
 
-  return ref;
+  return [ref, disconnected] as const;
 }
