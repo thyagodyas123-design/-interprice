@@ -1,5 +1,10 @@
 import type { WebSocket } from "@fastify/websocket";
 import { PtyManager } from "../pty/PtyManager.js";
+import { buildCommand, type Role } from "../pty/AgentSpawn.js";
+
+function findRole(_id: string | null): Role | null {
+  return null;
+}
 
 export function registerTerminalSocket(socket: WebSocket) {
   const manager = new PtyManager(
@@ -15,16 +20,24 @@ export function registerTerminalSocket(socket: WebSocket) {
       return;
     }
     switch (msg.type) {
-      case "terminal:spawn":
+      case "terminal:spawn": {
+        const role = msg.roleId ? findRole(msg.roleId) : null;
+        const { cmd, args } = buildCommand({
+          mode: msg.mode ?? "persistent",
+          role,
+          cwd: msg.cwd ?? process.env.HOME!,
+          model: msg.model ?? null,
+        });
         manager.spawn({
           nodeId: msg.nodeId,
-          command: "zsh",
-          args: [],
+          command: cmd,
+          args,
           cwd: msg.cwd ?? process.env.HOME!,
           cols: msg.cols ?? 80,
           rows: msg.rows ?? 24,
         });
         break;
+      }
       case "terminal:input":
         manager.write(msg.nodeId, msg.data);
         break;
