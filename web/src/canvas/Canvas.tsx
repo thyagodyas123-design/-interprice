@@ -5,7 +5,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useStore } from "../state/store";
-import { syncEdges, sendSocket } from "../ws/socket";
+import { syncEdges, sendSocket, onSocketOpen } from "../ws/socket";
 import { listPartituras, loadPartitura, savePartitura } from "../api/client";
 import type { FreehandPath } from "../types";
 import { TerminalNode } from "./nodes/TerminalNode";
@@ -78,6 +78,11 @@ function CanvasInner() {
 
   useEffect(() => {
     syncEdges(useStore.getState().edges);
+    const offOpen = onSocketOpen(() => {
+      sendSocket({ type: "roles:set", roles: useStore.getState().roles });
+      syncEdges(useStore.getState().edges);
+    });
+    return offOpen;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
