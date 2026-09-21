@@ -13,6 +13,7 @@ export function useTerminal(nodeId: string, data: any) {
   const { cwd, roleId, mode, model } = data;
 
   useEffect(() => {
+    setError(null);
     const el = ref.current;
     if (!el) return;
     const term = new Terminal({ convertEol: true, fontSize: 13 });
@@ -21,12 +22,14 @@ export function useTerminal(nodeId: string, data: any) {
     term.open(el);
     fit.fit();
 
-    const spawn = () =>
+    const spawn = () => {
+      const role = useStore.getState().roles.find((r) => r.id === roleId) ?? null;
       sendSocket({
         type: "terminal:spawn", nodeId,
-        cwd, roleId: roleId ?? null, mode: mode ?? "persistent", model: model ?? null,
+        cwd, role, mode: mode ?? "persistent", model: model ?? null,
         cols: term.cols, rows: term.rows,
       });
+    };
 
     const offMsg = onSocketMessage((m) => {
       if (m.nodeId !== nodeId) return;

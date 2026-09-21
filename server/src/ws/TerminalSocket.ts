@@ -58,7 +58,7 @@ export function registerTerminalSocket(socket: WebSocket) {
         const cols = msg.cols ?? 80;
         const rows = msg.rows ?? 24;
         const model = msg.model ?? null;
-        const role = roleRegistry.get(msg.roleId ?? null);
+        const role = msg.role ?? roleRegistry.get(msg.roleId ?? null);
         try {
           const { cmd, args } = buildCommand({ mode, role, cwd, model });
           manager.spawn({ nodeId: msg.nodeId, command: cmd, args, cwd, cols, rows });
