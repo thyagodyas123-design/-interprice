@@ -14,9 +14,16 @@ export function Canvas() {
   const edges = useStore((s) => s.edges);
   const setNodes = useStore((s) => s.setNodes);
   const setEdges = useStore((s) => s.setEdges);
+  const addNode = useStore((s) => s.addNode);
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
+      <button
+        onClick={() => addNode({ id: crypto.randomUUID(), type: "note", position: { x: 100, y: 100 }, data: { text: "" } })}
+        style={{ position: "fixed", top: 16, left: 16, zIndex: 10 }}
+      >
+        ＋ note
+      </button>
       <ReactFlow
         nodes={nodes as any}
         edges={edges as any}
