@@ -1,10 +1,7 @@
 import type { WebSocket } from "@fastify/websocket";
 import { PtyManager } from "../pty/PtyManager.js";
-import { buildCommand, type Role } from "../pty/AgentSpawn.js";
-
-function findRole(_id: string | null): Role | null {
-  return null;
-}
+import { buildCommand } from "../pty/AgentSpawn.js";
+import { roleRegistry } from "../roles/RoleRegistry.js";
 
 export function registerTerminalSocket(socket: WebSocket) {
   const manager = new PtyManager(
@@ -21,7 +18,7 @@ export function registerTerminalSocket(socket: WebSocket) {
     }
     switch (msg.type) {
       case "terminal:spawn": {
-        const role = msg.roleId ? findRole(msg.roleId) : null;
+        const role = roleRegistry.get(msg.roleId ?? null);
         const { cmd, args } = buildCommand({
           mode: msg.mode ?? "persistent",
           role,
@@ -46,6 +43,9 @@ export function registerTerminalSocket(socket: WebSocket) {
         break;
       case "terminal:kill":
         manager.kill(msg.nodeId);
+        break;
+      case "roles:set":
+        for (const r of msg.roles ?? []) roleRegistry.set(r);
         break;
     }
   });
