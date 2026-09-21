@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  ReactFlow, Background, Controls, MiniMap,
+  ReactFlow, ReactFlowProvider, useReactFlow, Background, Controls, MiniMap,
   addEdge, applyNodeChanges, applyEdgeChanges,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -16,6 +16,15 @@ import { DrawingOverlay } from "./DrawingOverlay";
 const nodeTypes = { terminal: TerminalNode, note: NoteNode, drawing: () => <></> };
 
 export function Canvas() {
+  return (
+    <ReactFlowProvider>
+      <CanvasInner />
+    </ReactFlowProvider>
+  );
+}
+
+function CanvasInner() {
+  const rf = useReactFlow();
   const nodes = useStore((s) => s.nodes);
   const edges = useStore((s) => s.edges);
   const setNodes = useStore((s) => s.setNodes);
@@ -40,8 +49,9 @@ export function Canvas() {
     const name = prompt("partitura name");
     if (!name) return;
     try {
+      const vp = rf.getViewport();
       const { nodes: n, edges: e, roles: r } = useStore.getState();
-      await savePartitura(name, { version: 1, name, viewport: { x: 0, y: 0, zoom: 1 }, nodes: n, edges: e, roles: r });
+      await savePartitura(name, { version: 1, name, viewport: { x: vp.x, y: vp.y, zoom: vp.zoom }, nodes: n, edges: e, roles: r });
     } catch (err) {
       alert("save failed: " + String(err));
     }
@@ -59,6 +69,7 @@ export function Canvas() {
       useStore.setState({ roles: p.roles });
       sendSocket({ type: "roles:set", roles: p.roles });
       syncEdges(p.edges);
+      if (p.viewport) rf.setViewport(p.viewport);
       useStore.setState((s) => ({ loadSeq: s.loadSeq + 1 }));
     } catch (err) {
       alert("open failed: " + String(err));
