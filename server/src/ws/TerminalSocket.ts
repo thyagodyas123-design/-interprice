@@ -2,21 +2,15 @@ import type { WebSocket } from "@fastify/websocket";
 import { PtyManager } from "../pty/PtyManager.js";
 import { buildCommand } from "../pty/AgentSpawn.js";
 import { roleRegistry } from "../roles/RoleRegistry.js";
-import { buildHandoffPrompt, deliver, type HandoffTarget } from "../handoff/HandoffEngine.js";
+import { buildHandoffPrompt, deliver, IdleDetector, type HandoffTarget } from "../handoff/HandoffEngine.js";
 
 const MAX_LAST_OUTPUT = 32000;
+const AUTO_IDLE_MS = 8000;
 
 export function registerTerminalSocket(socket: WebSocket) {
   const lastOutput = new Map<string, string>();
   const targets = new Map<string, HandoffTarget>();
-
-  const manager = new PtyManager(
-    (nodeId, data) => {
-      lastOutput.set(nodeId, ((lastOutput.get(nodeId) ?? "") + data).slice(-MAX_LAST_OUTPUT));
-      send(socket, { type: "terminal:output", nodeId, data });
-    },
-    (nodeId, code) => send(socket, { type: "terminal:exit", nodeId, code }),
-  );
+  const autoWatchers = new Map<string, { targetId: string; idle: IdleDetector }>();
 
   function deliverHandoff(sourceId: string, targetId: string, content?: string) {
     const prompt = buildHandoffPrompt(sourceId, content ?? lastOutput.get(sourceId) ?? "");
@@ -24,6 +18,16 @@ export function registerTerminalSocket(socket: WebSocket) {
     if (target) deliver(target, prompt);
     else manager.write(targetId, prompt + "\n");
   }
+
+  const manager = new PtyManager(
+    (nodeId, data) => {
+      lastOutput.set(nodeId, ((lastOutput.get(nodeId) ?? "") + data).slice(-MAX_LAST_OUTPUT));
+      send(socket, { type: "terminal:output", nodeId, data });
+      const w = autoWatchers.get(nodeId);
+      if (w) w.idle.reset(AUTO_IDLE_MS, () => deliverHandoff(nodeId, w.targetId));
+    },
+    (nodeId, code) => send(socket, { type: "terminal:exit", nodeId, code }),
+  );
 
   socket.on("message", (raw: any) => {
     let msg: any;
@@ -67,7 +71,11 @@ export function registerTerminalSocket(socket: WebSocket) {
         for (const r of msg.roles ?? []) roleRegistry.set(r);
         break;
       case "handoff":
-        deliverHandoff(msg.sourceId, msg.targetId, msg.content);
+        if (msg.trigger === "auto") {
+          autoWatchers.set(msg.sourceId, { targetId: msg.targetId, idle: new IdleDetector() });
+        } else {
+          deliverHandoff(msg.sourceId, msg.targetId, msg.content);
+        }
         break;
     }
   });
