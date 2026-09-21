@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { getSocket, onSocketClose, sendSocket } from "../ws/socket";
+import { getConnectionState, onSocketClose, onSocketMessage, onSocketOpen, sendSocket } from "../ws/socket";
 import { useStore } from "../state/store";
 
 export function useTerminal(nodeId: string, cwd: string) {
@@ -19,24 +19,29 @@ export function useTerminal(nodeId: string, cwd: string) {
     term.open(el);
     fit.fit();
 
-    const ws = getSocket();
-    const onMessage = (e: MessageEvent) => {
-      const m = JSON.parse(e.data);
+    const spawn = () =>
+      sendSocket({ type: "terminal:spawn", nodeId, cwd, cols: term.cols, rows: term.rows });
+
+    const offMsg = onSocketMessage((m) => {
       if (m.type === "terminal:output" && m.nodeId === nodeId) term.write(m.data);
-    };
-    ws.addEventListener("message", onMessage);
-
+    });
     const offClose = onSocketClose(() => setDisconnected(true));
+    const offOpen = onSocketOpen(() => {
+      setDisconnected(false);
+      spawn();
+    });
 
-    sendSocket({ type: "terminal:spawn", nodeId, cwd, cols: term.cols, rows: term.rows });
+    if (getConnectionState() === "open") spawn();
+
     term.onData((d) => sendSocket({ type: "terminal:input", nodeId, data: d }));
     term.onResize(({ cols, rows }) =>
       sendSocket({ type: "terminal:resize", nodeId, cols, rows }));
 
     return () => {
       sendSocket({ type: "terminal:kill", nodeId });
-      ws.removeEventListener("message", onMessage);
+      offMsg();
       offClose();
+      offOpen();
       term.dispose();
     };
   }, [nodeId, cwd, loadSeq]);
