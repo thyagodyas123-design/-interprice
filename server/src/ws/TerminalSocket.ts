@@ -2,12 +2,28 @@ import type { WebSocket } from "@fastify/websocket";
 import { PtyManager } from "../pty/PtyManager.js";
 import { buildCommand } from "../pty/AgentSpawn.js";
 import { roleRegistry } from "../roles/RoleRegistry.js";
+import { buildHandoffPrompt, deliver, type HandoffTarget } from "../handoff/HandoffEngine.js";
+
+const MAX_LAST_OUTPUT = 32000;
 
 export function registerTerminalSocket(socket: WebSocket) {
+  const lastOutput = new Map<string, string>();
+  const targets = new Map<string, HandoffTarget>();
+
   const manager = new PtyManager(
-    (nodeId, data) => send(socket, { type: "terminal:output", nodeId, data }),
+    (nodeId, data) => {
+      lastOutput.set(nodeId, ((lastOutput.get(nodeId) ?? "") + data).slice(-MAX_LAST_OUTPUT));
+      send(socket, { type: "terminal:output", nodeId, data });
+    },
     (nodeId, code) => send(socket, { type: "terminal:exit", nodeId, code }),
   );
+
+  function deliverHandoff(sourceId: string, targetId: string, content?: string) {
+    const prompt = buildHandoffPrompt(sourceId, content ?? lastOutput.get(sourceId) ?? "");
+    const target = targets.get(targetId);
+    if (target) deliver(target, prompt);
+    else manager.write(targetId, prompt + "\n");
+  }
 
   socket.on("message", (raw: any) => {
     let msg: any;
@@ -18,20 +34,23 @@ export function registerTerminalSocket(socket: WebSocket) {
     }
     switch (msg.type) {
       case "terminal:spawn": {
+        const mode = msg.mode ?? "persistent";
+        const cwd = msg.cwd ?? process.env.HOME!;
+        const cols = msg.cols ?? 80;
+        const rows = msg.rows ?? 24;
+        const model = msg.model ?? null;
         const role = roleRegistry.get(msg.roleId ?? null);
-        const { cmd, args } = buildCommand({
-          mode: msg.mode ?? "persistent",
-          role,
-          cwd: msg.cwd ?? process.env.HOME!,
-          model: msg.model ?? null,
-        });
-        manager.spawn({
-          nodeId: msg.nodeId,
-          command: cmd,
-          args,
-          cwd: msg.cwd ?? process.env.HOME!,
-          cols: msg.cols ?? 80,
-          rows: msg.rows ?? 24,
+        const { cmd, args } = buildCommand({ mode, role, cwd, model });
+        manager.spawn({ nodeId: msg.nodeId, command: cmd, args, cwd, cols, rows });
+        targets.set(msg.nodeId, {
+          kind: mode,
+          write: (s) => manager.write(msg.nodeId, s),
+          runOneshot: (prompt) => {
+            const one = ["run", "--dir", cwd];
+            if (model) one.push("-m", model);
+            one.push(prompt);
+            manager.spawn({ nodeId: msg.nodeId, command: "opencode", args: one, cwd, cols, rows });
+          },
         });
         break;
       }
@@ -46,6 +65,9 @@ export function registerTerminalSocket(socket: WebSocket) {
         break;
       case "roles:set":
         for (const r of msg.roles ?? []) roleRegistry.set(r);
+        break;
+      case "handoff":
+        deliverHandoff(msg.sourceId, msg.targetId, msg.content);
         break;
     }
   });

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ReactFlow, Background, Controls, MiniMap,
   addEdge, applyNodeChanges, applyEdgeChanges,
@@ -6,6 +7,7 @@ import "@xyflow/react/dist/style.css";
 import { useStore } from "../state/store";
 import { TerminalNode } from "./nodes/TerminalNode";
 import { NoteNode } from "./nodes/NoteNode";
+import { EdgeHandoff } from "./EdgeHandoff";
 
 const nodeTypes = { terminal: TerminalNode, note: NoteNode };
 
@@ -15,6 +17,7 @@ export function Canvas() {
   const setNodes = useStore((s) => s.setNodes);
   const setEdges = useStore((s) => s.setEdges);
   const addNode = useStore((s) => s.addNode);
+  const [selectedEdge, setSelectedEdge] = useState<any>(null);
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
@@ -31,12 +34,16 @@ export function Canvas() {
         onNodesChange={(changes) => setNodes(applyNodeChanges(changes, nodes as any) as any)}
         onEdgesChange={(changes) => setEdges(applyEdgeChanges(changes, edges as any) as any)}
         onConnect={(c) => setEdges(addEdge({ ...c, type: "smoothstep" } as any, edges as any) as any)}
+        onEdgeClick={(_, edge) => setSelectedEdge(edge)}
         fitView
       >
         <Background />
         <Controls />
         <MiniMap />
       </ReactFlow>
+      {selectedEdge && (
+        <EdgeHandoff sourceId={selectedEdge.source} targetId={selectedEdge.target} />
+      )}
     </div>
   );
 }
