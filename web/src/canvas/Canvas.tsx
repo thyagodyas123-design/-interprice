@@ -6,9 +6,11 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useStore } from "../state/store";
 import { syncEdges } from "../ws/socket";
+import type { FreehandPath } from "../types";
 import { TerminalNode } from "./nodes/TerminalNode";
 import { NoteNode } from "./nodes/NoteNode";
 import { EdgeHandoff } from "./EdgeHandoff";
+import { DrawingOverlay } from "./DrawingOverlay";
 
 const nodeTypes = { terminal: TerminalNode, note: NoteNode };
 
@@ -19,6 +21,19 @@ export function Canvas() {
   const setEdges = useStore((s) => s.setEdges);
   const addNode = useStore((s) => s.addNode);
   const [selectedEdge, setSelectedEdge] = useState<any>(null);
+  const [drawMode, setDrawMode] = useState(false);
+
+  const drawingNode = nodes.find((n) => n.type === "drawing") as any;
+  const drawingPaths: FreehandPath[] = drawingNode?.data?.paths ?? [];
+
+  const handleDrawChange = (paths: FreehandPath[]) => {
+    if (drawingNode) {
+      setNodes(nodes.map((n) =>
+        n.id === drawingNode.id ? { ...n, data: { ...(n.data as any), paths } } : n) as any);
+    } else {
+      addNode({ id: crypto.randomUUID(), type: "drawing", position: { x: 0, y: 0 }, data: { paths } } as any);
+    }
+  };
 
   useEffect(() => {
     syncEdges(useStore.getState().edges);
@@ -32,6 +47,12 @@ export function Canvas() {
         style={{ position: "fixed", top: 16, left: 16, zIndex: 10 }}
       >
         ＋ note
+      </button>
+      <button
+        onClick={() => setDrawMode((m) => !m)}
+        style={{ position: "fixed", top: 16, left: 110, zIndex: 10 }}
+      >
+        ✏️ draw
       </button>
       <ReactFlow
         nodes={nodes as any}
@@ -59,6 +80,7 @@ export function Canvas() {
         <MiniMap />
       </ReactFlow>
       {selectedEdge && <EdgeHandoff edge={selectedEdge} />}
+      <DrawingOverlay active={drawMode} paths={drawingPaths} onChange={handleDrawChange} />
     </div>
   );
 }
